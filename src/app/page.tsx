@@ -367,7 +367,7 @@ export default function Home() {
                     className="border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-black"
                   >
                     <Settings className="w-4 h-4 mr-2" />
-                    Admin
+                    Painel Admin
                   </Button>
                   <Button 
                     onClick={handleAdminLogout}
@@ -380,10 +380,11 @@ export default function Home() {
               ) : (
                 <Button 
                   onClick={() => setShowAdminLogin(true)}
-                  variant="ghost"
-                  className="text-gray-400 hover:text-amber-400"
+                  variant="outline"
+                  className="border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-black"
                 >
-                  <Settings className="w-4 h-4" />
+                  <Settings className="w-4 h-4 mr-2" />
+                  Admin
                 </Button>
               )}
               <Button 
