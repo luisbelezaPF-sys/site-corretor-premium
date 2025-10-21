@@ -90,6 +90,14 @@ export default function Home() {
   const loadProperties = async () => {
     try {
       setLoading(true)
+      
+      // Verificar se as variáveis do Supabase estão configuradas
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        console.warn('Variáveis do Supabase não configuradas')
+        setProperties([])
+        return
+      }
+
       const { data, error } = await supabase
         .from('properties')
         .select('*')
@@ -103,6 +111,7 @@ export default function Home() {
       setProperties(data || [])
     } catch (error) {
       console.error('Erro ao carregar propriedades:', error)
+      setProperties([])
     } finally {
       setLoading(false)
     }
@@ -168,6 +177,12 @@ export default function Home() {
   // Funções de gerenciamento de propriedades
   const handleAddProperty = async () => {
     try {
+      // Verificar se as variáveis do Supabase estão configuradas
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        alert('Supabase não configurado. Configure as variáveis de ambiente.')
+        return
+      }
+
       const { data, error } = await supabase
         .from('properties')
         .insert([propertyForm])
@@ -221,6 +236,12 @@ export default function Home() {
     if (!editingProperty) return
 
     try {
+      // Verificar se as variáveis do Supabase estão configuradas
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        alert('Supabase não configurado. Configure as variáveis de ambiente.')
+        return
+      }
+
       const { error } = await supabase
         .from('properties')
         .update(propertyForm)
@@ -258,6 +279,12 @@ export default function Home() {
     if (!confirm("Tem certeza que deseja excluir esta propriedade?")) return
 
     try {
+      // Verificar se as variáveis do Supabase estão configuradas
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        alert('Supabase não configurado. Configure as variáveis de ambiente.')
+        return
+      }
+
       const { error } = await supabase
         .from('properties')
         .delete()
@@ -282,6 +309,12 @@ export default function Home() {
     if (!property) return
 
     try {
+      // Verificar se as variáveis do Supabase estão configuradas
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        alert('Supabase não configurado. Configure as variáveis de ambiente.')
+        return
+      }
+
       const { error } = await supabase
         .from('properties')
         .update({ active: !property.active })
