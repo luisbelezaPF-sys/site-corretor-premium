@@ -1,17 +1,89 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, MapPin, Bed, Bath, Square, Phone, Mail, MessageCircle, Star, Filter, X, Plus, Edit, Trash2, Eye, EyeOff, Settings, LogOut, Save, Upload } from 'lucide-react'
+import { Search, MapPin, Bed, Bath, Square, Phone, Mail, MessageCircle, Star, Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { supabase, type Property } from '@/lib/supabase'
+
+// Dados mock dos imóveis
+const properties = [
+  {
+    id: 1,
+    title: "Apartamento Luxuoso Centro",
+    type: "Apartamento",
+    price: 2500,
+    location: "Centro, Alfenas",
+    bedrooms: 3,
+    bathrooms: 2,
+    area: 120,
+    image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop",
+    description: "Apartamento moderno no coração de Alfenas, com acabamentos de primeira qualidade."
+  },
+  {
+    id: 2,
+    title: "Casa Familiar Jardim Europa",
+    type: "Casa",
+    price: 3200,
+    location: "Jardim Europa, Alfenas",
+    bedrooms: 4,
+    bathrooms: 3,
+    area: 180,
+    image: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400&h=300&fit=crop",
+    description: "Casa espaçosa em bairro nobre, ideal para famílias que buscam conforto e segurança."
+  },
+  {
+    id: 3,
+    title: "Cobertura Vista Panorâmica",
+    type: "Cobertura",
+    price: 4500,
+    location: "Alto da Colina, Alfenas",
+    bedrooms: 3,
+    bathrooms: 3,
+    area: 200,
+    image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop",
+    description: "Cobertura exclusiva com vista panorâmica da cidade e área de lazer completa."
+  },
+  {
+    id: 4,
+    title: "Kitnet Estudantil",
+    type: "Kitnet",
+    price: 800,
+    location: "Próximo UNIFAL, Alfenas",
+    bedrooms: 1,
+    bathrooms: 1,
+    area: 35,
+    image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&h=300&fit=crop",
+    description: "Kitnet moderna e funcional, perfeita para estudantes universitários."
+  },
+  {
+    id: 5,
+    title: "Casa Comercial Centro",
+    type: "Comercial",
+    price: 5000,
+    location: "Centro Comercial, Alfenas",
+    bedrooms: 0,
+    bathrooms: 2,
+    area: 150,
+    image: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop",
+    description: "Imóvel comercial em localização privilegiada, ideal para escritórios ou consultórios."
+  },
+  {
+    id: 6,
+    title: "Apartamento Novo Residencial",
+    type: "Apartamento",
+    price: 1800,
+    location: "Residencial Morada do Sol, Alfenas",
+    bedrooms: 2,
+    bathrooms: 1,
+    area: 65,
+    image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop",
+    description: "Apartamento novo em condomínio fechado com área de lazer completa."
+  }
+]
 
 const testimonials = [
   {
@@ -47,24 +119,11 @@ const testimonials = [
 ]
 
 export default function Home() {
-  // Estados principais
-  const [properties, setProperties] = useState<Property[]>([])
-  const [filteredProperties, setFilteredProperties] = useState<Property[]>([])
+  const [filteredProperties, setFilteredProperties] = useState(properties)
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [priceFilter, setPriceFilter] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
-  const [loading, setLoading] = useState(true)
-  
-  // Estados do admin
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [showAdminLogin, setShowAdminLogin] = useState(false)
-  const [adminCredentials, setAdminCredentials] = useState({ id: "", password: "" })
-  const [showAdminPanel, setShowAdminPanel] = useState(false)
-  const [editingProperty, setEditingProperty] = useState<Property | null>(null)
-  const [showPropertyForm, setShowPropertyForm] = useState(false)
-  
-  // Estados do formulário de contato
   const [contactForm, setContactForm] = useState({
     name: "",
     phone: "",
@@ -72,59 +131,9 @@ export default function Home() {
     message: ""
   })
 
-  // Estado do formulário de propriedade
-  const [propertyForm, setPropertyForm] = useState<Omit<Property, 'id' | 'created_at' | 'updated_at'>>({
-    title: "",
-    type: "Apartamento",
-    price: 0,
-    location: "",
-    bedrooms: 1,
-    bathrooms: 1,
-    area: 0,
-    image: "",
-    description: "",
-    active: true
-  })
-
-  // Carregar propriedades do Supabase
-  const loadProperties = async () => {
-    try {
-      setLoading(true)
-      
-      // Verificar se as variáveis do Supabase estão configuradas
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        console.warn('Variáveis do Supabase não configuradas')
-        setProperties([])
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('properties')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Erro ao carregar propriedades:', error)
-        return
-      }
-
-      setProperties(data || [])
-    } catch (error) {
-      console.error('Erro ao carregar propriedades:', error)
-      setProperties([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Carregar propriedades na inicialização
-  useEffect(() => {
-    loadProperties()
-  }, [])
-
-  // Filtrar imóveis (apenas ativos para usuários normais)
+  // Filtrar imóveis de forma síncrona
   const filterProperties = useCallback(() => {
-    let filtered = isAdmin ? [...properties] : properties.filter(p => p.active)
+    let filtered = [...properties]
 
     if (searchTerm) {
       filtered = filtered.filter(property => 
@@ -148,190 +157,12 @@ export default function Home() {
     }
 
     setFilteredProperties(filtered)
-  }, [searchTerm, typeFilter, priceFilter, properties, isAdmin])
+  }, [searchTerm, typeFilter, priceFilter])
 
+  // Aplicar filtros imediatamente quando mudarem
   useEffect(() => {
     filterProperties()
   }, [filterProperties])
-
-  // Funções de autenticação
-  const handleAdminLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (adminCredentials.id === "admin" && adminCredentials.password === "batman25") {
-      setIsAdmin(true)
-      setShowAdminLogin(false)
-      setShowAdminPanel(true)
-      setAdminCredentials({ id: "", password: "" })
-    } else {
-      alert("Credenciais inválidas!")
-    }
-  }
-
-  const handleAdminLogout = () => {
-    setIsAdmin(false)
-    setShowAdminPanel(false)
-    setEditingProperty(null)
-    setShowPropertyForm(false)
-  }
-
-  // Funções de gerenciamento de propriedades
-  const handleAddProperty = async () => {
-    try {
-      // Verificar se as variáveis do Supabase estão configuradas
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        alert('Supabase não configurado. Configure as variáveis de ambiente.')
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('properties')
-        .insert([propertyForm])
-        .select()
-
-      if (error) {
-        console.error('Erro ao adicionar propriedade:', error)
-        alert('Erro ao adicionar propriedade!')
-        return
-      }
-
-      await loadProperties() // Recarregar lista
-      setPropertyForm({
-        title: "",
-        type: "Apartamento",
-        price: 0,
-        location: "",
-        bedrooms: 1,
-        bathrooms: 1,
-        area: 0,
-        image: "",
-        description: "",
-        active: true
-      })
-      setShowPropertyForm(false)
-      alert('Propriedade adicionada com sucesso!')
-    } catch (error) {
-      console.error('Erro ao adicionar propriedade:', error)
-      alert('Erro ao adicionar propriedade!')
-    }
-  }
-
-  const handleEditProperty = (property: Property) => {
-    setEditingProperty(property)
-    setPropertyForm({
-      title: property.title,
-      type: property.type,
-      price: property.price,
-      location: property.location,
-      bedrooms: property.bedrooms,
-      bathrooms: property.bathrooms,
-      area: property.area,
-      image: property.image,
-      description: property.description,
-      active: property.active
-    })
-    setShowPropertyForm(true)
-  }
-
-  const handleUpdateProperty = async () => {
-    if (!editingProperty) return
-
-    try {
-      // Verificar se as variáveis do Supabase estão configuradas
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        alert('Supabase não configurado. Configure as variáveis de ambiente.')
-        return
-      }
-
-      const { error } = await supabase
-        .from('properties')
-        .update(propertyForm)
-        .eq('id', editingProperty.id)
-
-      if (error) {
-        console.error('Erro ao atualizar propriedade:', error)
-        alert('Erro ao atualizar propriedade!')
-        return
-      }
-
-      await loadProperties() // Recarregar lista
-      setEditingProperty(null)
-      setPropertyForm({
-        title: "",
-        type: "Apartamento",
-        price: 0,
-        location: "",
-        bedrooms: 1,
-        bathrooms: 1,
-        area: 0,
-        image: "",
-        description: "",
-        active: true
-      })
-      setShowPropertyForm(false)
-      alert('Propriedade atualizada com sucesso!')
-    } catch (error) {
-      console.error('Erro ao atualizar propriedade:', error)
-      alert('Erro ao atualizar propriedade!')
-    }
-  }
-
-  const handleDeleteProperty = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir esta propriedade?")) return
-
-    try {
-      // Verificar se as variáveis do Supabase estão configuradas
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        alert('Supabase não configurado. Configure as variáveis de ambiente.')
-        return
-      }
-
-      const { error } = await supabase
-        .from('properties')
-        .delete()
-        .eq('id', id)
-
-      if (error) {
-        console.error('Erro ao excluir propriedade:', error)
-        alert('Erro ao excluir propriedade!')
-        return
-      }
-
-      await loadProperties() // Recarregar lista
-      alert('Propriedade excluída com sucesso!')
-    } catch (error) {
-      console.error('Erro ao excluir propriedade:', error)
-      alert('Erro ao excluir propriedade!')
-    }
-  }
-
-  const togglePropertyActive = async (id: number) => {
-    const property = properties.find(p => p.id === id)
-    if (!property) return
-
-    try {
-      // Verificar se as variáveis do Supabase estão configuradas
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        alert('Supabase não configurado. Configure as variáveis de ambiente.')
-        return
-      }
-
-      const { error } = await supabase
-        .from('properties')
-        .update({ active: !property.active })
-        .eq('id', id)
-
-      if (error) {
-        console.error('Erro ao alterar status da propriedade:', error)
-        alert('Erro ao alterar status da propriedade!')
-        return
-      }
-
-      await loadProperties() // Recarregar lista
-    } catch (error) {
-      console.error('Erro ao alterar status da propriedade:', error)
-      alert('Erro ao alterar status da propriedade!')
-    }
-  }
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -345,17 +176,6 @@ export default function Home() {
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' })
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-300">Carregando propriedades...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -391,329 +211,15 @@ export default function Home() {
                 Contato
               </button>
             </nav>
-            <div className="flex items-center gap-2">
-              {isAdmin ? (
-                <>
-                  <Button 
-                    onClick={() => setShowAdminPanel(!showAdminPanel)}
-                    variant="outline"
-                    className="border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-black"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Painel Admin
-                  </Button>
-                  <Button 
-                    onClick={handleAdminLogout}
-                    variant="outline"
-                    className="border-red-400 text-red-400 hover:bg-red-400 hover:text-black"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </Button>
-                </>
-              ) : (
-                <Button 
-                  onClick={() => setShowAdminLogin(true)}
-                  variant="outline"
-                  className="border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-black"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Admin
-                </Button>
-              )}
-              <Button 
-                onClick={() => window.open('https://wa.me/5535988326287', '_blank')}
-                className="bg-gradient-to-r from-amber-400 to-yellow-600 text-black hover:from-amber-500 hover:to-yellow-700"
-              >
-                Fale Comigo
-              </Button>
-            </div>
+            <Button 
+              onClick={() => window.open('https://wa.me/5535988326287', '_blank')}
+              className="bg-gradient-to-r from-amber-400 to-yellow-600 text-black hover:from-amber-500 hover:to-yellow-700"
+            >
+              Fale Comigo
+            </Button>
           </div>
         </div>
       </header>
-
-      {/* Admin Login Modal */}
-      <Dialog open={showAdminLogin} onOpenChange={setShowAdminLogin}>
-        <DialogContent className="bg-gray-900 border-gray-800">
-          <DialogHeader>
-            <DialogTitle className="text-amber-400">Login Administrativo</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div>
-              <Label htmlFor="admin-id" className="text-gray-300">ID</Label>
-              <Input
-                id="admin-id"
-                type="text"
-                value={adminCredentials.id}
-                onChange={(e) => setAdminCredentials({...adminCredentials, id: e.target.value})}
-                className="bg-gray-800 border-gray-700 text-white"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="admin-password" className="text-gray-300">Senha</Label>
-              <Input
-                id="admin-password"
-                type="password"
-                value={adminCredentials.password}
-                onChange={(e) => setAdminCredentials({...adminCredentials, password: e.target.value})}
-                className="bg-gray-800 border-gray-700 text-white"
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full bg-gradient-to-r from-amber-400 to-yellow-600 text-black">
-              Entrar
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Admin Panel */}
-      {isAdmin && showAdminPanel && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 pt-32">
-          <div className="container mx-auto px-4 h-full overflow-y-auto">
-            <Card className="bg-gray-900 border-gray-800 mb-6">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-amber-400">Painel Administrativo</CardTitle>
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={() => setShowPropertyForm(true)}
-                      className="bg-gradient-to-r from-green-500 to-green-600 text-white"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Nova Propriedade
-                    </Button>
-                    <Button 
-                      onClick={() => setShowAdminPanel(false)}
-                      variant="outline"
-                      className="border-gray-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4">
-                  {properties.map((property) => (
-                    <div key={property.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <img 
-                          src={property.image} 
-                          alt={property.title}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                        <div>
-                          <h4 className="text-white font-semibold">{property.title}</h4>
-                          <p className="text-gray-400 text-sm">{property.location}</p>
-                          <p className="text-amber-400 font-medium">R$ {property.price.toLocaleString()}/mês</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={property.active}
-                            onCheckedChange={() => togglePropertyActive(property.id)}
-                          />
-                          {property.active ? (
-                            <Eye className="w-4 h-4 text-green-400" />
-                          ) : (
-                            <EyeOff className="w-4 h-4 text-red-400" />
-                          )}
-                        </div>
-                        <Button
-                          onClick={() => handleEditProperty(property)}
-                          variant="outline"
-                          size="sm"
-                          className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-black"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          onClick={() => handleDeleteProperty(property.id)}
-                          variant="outline"
-                          size="sm"
-                          className="border-red-400 text-red-400 hover:bg-red-400 hover:text-black"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* Property Form Modal */}
-      <Dialog open={showPropertyForm} onOpenChange={setShowPropertyForm}>
-        <DialogContent className="bg-gray-900 border-gray-800 max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-amber-400">
-              {editingProperty ? 'Editar Propriedade' : 'Nova Propriedade'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="title" className="text-gray-300">Título</Label>
-                <Input
-                  id="title"
-                  value={propertyForm.title}
-                  onChange={(e) => setPropertyForm({...propertyForm, title: e.target.value})}
-                  className="bg-gray-800 border-gray-700 text-white"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="type" className="text-gray-300">Tipo</Label>
-                <Select value={propertyForm.type} onValueChange={(value) => setPropertyForm({...propertyForm, type: value})}>
-                  <SelectTrigger className="bg-gray-800 border-gray-700">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Apartamento">Apartamento</SelectItem>
-                    <SelectItem value="Casa">Casa</SelectItem>
-                    <SelectItem value="Cobertura">Cobertura</SelectItem>
-                    <SelectItem value="Kitnet">Kitnet</SelectItem>
-                    <SelectItem value="Comercial">Comercial</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="price" className="text-gray-300">Preço (R$/mês)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={propertyForm.price}
-                  onChange={(e) => setPropertyForm({...propertyForm, price: Number(e.target.value)})}
-                  className="bg-gray-800 border-gray-700 text-white"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="area" className="text-gray-300">Área (m²)</Label>
-                <Input
-                  id="area"
-                  type="number"
-                  value={propertyForm.area}
-                  onChange={(e) => setPropertyForm({...propertyForm, area: Number(e.target.value)})}
-                  className="bg-gray-800 border-gray-700 text-white"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="bedrooms" className="text-gray-300">Quartos</Label>
-                <Input
-                  id="bedrooms"
-                  type="number"
-                  min="0"
-                  value={propertyForm.bedrooms}
-                  onChange={(e) => setPropertyForm({...propertyForm, bedrooms: Number(e.target.value)})}
-                  className="bg-gray-800 border-gray-700 text-white"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="bathrooms" className="text-gray-300">Banheiros</Label>
-                <Input
-                  id="bathrooms"
-                  type="number"
-                  min="1"
-                  value={propertyForm.bathrooms}
-                  onChange={(e) => setPropertyForm({...propertyForm, bathrooms: Number(e.target.value)})}
-                  className="bg-gray-800 border-gray-700 text-white"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="location" className="text-gray-300">Localização</Label>
-              <Input
-                id="location"
-                value={propertyForm.location}
-                onChange={(e) => setPropertyForm({...propertyForm, location: e.target.value})}
-                className="bg-gray-800 border-gray-700 text-white"
-                placeholder="Ex: Centro, Alfenas"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="image" className="text-gray-300">URL da Imagem</Label>
-              <Input
-                id="image"
-                value={propertyForm.image}
-                onChange={(e) => setPropertyForm({...propertyForm, image: e.target.value})}
-                className="bg-gray-800 border-gray-700 text-white"
-                placeholder="https://exemplo.com/imagem.jpg"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="description" className="text-gray-300">Descrição</Label>
-              <Textarea
-                id="description"
-                value={propertyForm.description}
-                onChange={(e) => setPropertyForm({...propertyForm, description: e.target.value})}
-                className="bg-gray-800 border-gray-700 text-white min-h-[100px]"
-                required
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="active"
-                checked={propertyForm.active}
-                onCheckedChange={(checked) => setPropertyForm({...propertyForm, active: checked})}
-              />
-              <Label htmlFor="active" className="text-gray-300">Propriedade ativa</Label>
-            </div>
-
-            <div className="flex gap-2 pt-4">
-              <Button
-                onClick={editingProperty ? handleUpdateProperty : handleAddProperty}
-                className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {editingProperty ? 'Atualizar' : 'Salvar'}
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowPropertyForm(false)
-                  setEditingProperty(null)
-                  setPropertyForm({
-                    title: "",
-                    type: "Apartamento",
-                    price: 0,
-                    location: "",
-                    bedrooms: 1,
-                    bathrooms: 1,
-                    area: 0,
-                    image: "",
-                    description: "",
-                    active: true
-                  })
-                }}
-                variant="outline"
-                className="border-gray-700"
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Hero Section */}
       <section className="pt-32 md:pt-36 pb-16 px-4">
@@ -870,7 +376,7 @@ export default function Home() {
           {/* Properties Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProperties.map((property) => (
-              <Card key={property.id} className={`bg-gray-900 border-gray-800 overflow-hidden hover:border-amber-400 transition-all duration-300 group ${!property.active && isAdmin ? 'opacity-50' : ''}`}>
+              <Card key={property.id} className="bg-gray-900 border-gray-800 overflow-hidden hover:border-amber-400 transition-all duration-300 group">
                 <div className="relative overflow-hidden">
                   <img 
                     src={property.image} 
@@ -883,11 +389,6 @@ export default function Home() {
                   <div className="absolute top-3 right-3 bg-black/70 text-white px-2 py-1 rounded text-sm font-semibold">
                     R$ {property.price.toLocaleString()}/mês
                   </div>
-                  {!property.active && isAdmin && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <Badge variant="destructive">INATIVO</Badge>
-                    </div>
-                  )}
                 </div>
                 <CardContent className="p-6">
                   <h4 className="text-xl font-semibold text-white mb-2">{property.title}</h4>

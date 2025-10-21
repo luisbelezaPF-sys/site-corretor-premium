@@ -3,8 +3,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-// Import all available fonts for AI usage
-import "../lib/fonts";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Criado com a Lasy",
-  description: "Projeto criado com Lasy AI",
+  title: "Raphael Augusto - Corretor de Imóveis",
+  description: "Encontre o imóvel perfeito em Alfenas com Raphael Augusto, corretor experiente e confiável.",
 };
 
 export default function RootLayout({
